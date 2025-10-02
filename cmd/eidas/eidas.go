@@ -34,9 +34,8 @@ var (
 	isCA         = flag.Bool("ca", false, "whether this cert should be its own Certificate Authority")
 	rsaBits      = flag.Int("rsa-bits", 2048, "Size of RSA key to generate. Ignored if --ecdsa-curve is set")
 	ecdsaCurve   = flag.String("ecdsa-curve", "", "ECDSA curve to use to generate a key. Valid values are P224, P256 (recommended), P384, P521")
-	ed25519Key   = flag.Bool("ed25519", false, "Generate an Ed25519 key")
 	orgID        = flag.String("organizationIdentifier", "VATES-12345678J", "Organization Identifier")
-	commonName   = flag.String("commonName", "34343434H John Doe", "Common Name")
+	commonName   = flag.String("commonName", "John Doe 34343434H", "Common Name")
 	serialNumber = flag.String("serialNumber", "34343434H", "Serial Number")
 	organization = flag.String("organization", "GoodAir Foundation", "Organization")
 	country      = flag.String("country", "ES", "Country")
@@ -149,11 +148,12 @@ func main() {
 		NotAfter:     notAfter,
 
 		KeyUsage:              keyUsage,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 	}
 
 	if *isCA {
+		fmt.Println("This certificate will be its own Certificate Authority")
 		template.IsCA = true
 		template.KeyUsage |= x509.KeyUsageCertSign
 	}
