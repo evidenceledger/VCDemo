@@ -1,12 +1,8 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -19,8 +15,6 @@ import (
 	"github.com/evidenceledger/vcdemo/verifiernew"
 	"github.com/evidenceledger/vcdemo/x509util"
 	"github.com/hesusruiz/vcutils/yaml"
-	"github.com/labstack/echo/v5"
-	echomiddle "github.com/labstack/echo/v5/middleware"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 	"github.com/spf13/cobra"
@@ -364,144 +358,144 @@ func StartServices(rootCfg *yaml.YAML) error {
 		return err
 	}
 
-	// Start the server for static Wallet assets
-	go func() {
-		staticServer := echo.New()
-		staticServer.Use(echomiddle.CORS())
+	// // Start the server for static Wallet assets
+	// go func() {
+	// 	staticServer := echo.New()
+	// 	staticServer.Use(echomiddle.CORS())
 
-		// Serve the static assets from the configured directory
-		staticDir := rootCfg.String("server.staticDir", "www")
-		staticServer.Static("/*", staticDir)
+	// 	// Serve the static assets from the configured directory
+	// 	staticDir := rootCfg.String("server.staticDir", "www")
+	// 	staticServer.Static("/*", staticDir)
 
-		if rootCfg.String("server.environment") == "development" {
-			// Just for development time. Disable when in production
+	// 	if rootCfg.String("server.environment") == "development" {
+	// 		// Just for development time. Disable when in production
 
-			// Start the watcher
-			go faster.WatchAndBuild(buildConfigFileName(rootCfg))
+	// 		// Start the watcher
+	// 		go faster.WatchAndBuild(buildConfigFileName(rootCfg))
 
-			// Stop the whole server remotely
-			staticServer.GET("/stopserver", func(c echo.Context) error {
-				os.Exit(0)
-				return nil
-			})
+	// 		// Stop the whole server remotely
+	// 		staticServer.GET("/stopserver", func(c echo.Context) error {
+	// 			os.Exit(0)
+	// 			return nil
+	// 		})
 
-			staticServer.GET("/fake", func(c echo.Context) error {
-				fmt.Println("Me han llamado al GET: ", c.Request().URL)
+	// 		staticServer.GET("/fake", func(c echo.Context) error {
+	// 			fmt.Println("Me han llamado al GET: ", c.Request().URL)
 
-				return nil
-			})
-			staticServer.POST("/fake", func(c echo.Context) error {
-				fmt.Println("Me han llamado al POST")
+	// 			return nil
+	// 		})
+	// 		staticServer.POST("/fake", func(c echo.Context) error {
+	// 			fmt.Println("Me han llamado al POST")
 
-				return nil
-			})
+	// 			return nil
+	// 		})
 
-			type forwardRequest struct {
-				Method        string `json:"method"`
-				URL           string `json:"url"`
-				Mimetype      string `json:"mimetype"`
-				Authorization string `json:"authorization"`
-			}
+	// 		type forwardRequest struct {
+	// 			Method        string `json:"method"`
+	// 			URL           string `json:"url"`
+	// 			Mimetype      string `json:"mimetype"`
+	// 			Authorization string `json:"authorization"`
+	// 		}
 
-			staticServer.POST("/serverhandler", func(c echo.Context) error {
-				fmt.Println("ServerHandler called")
+	// 		staticServer.POST("/serverhandler", func(c echo.Context) error {
+	// 			fmt.Println("ServerHandler called")
 
-				received := new(forwardRequest)
+	// 			received := new(forwardRequest)
 
-				reqbody, err := io.ReadAll(c.Request().Body)
-				if err != nil {
-					fmt.Println("error reading body of request: ", err)
-					return c.String(http.StatusBadRequest, "bad request")
-				}
-				fmt.Println("Body: ", string(reqbody))
+	// 			reqbody, err := io.ReadAll(c.Request().Body)
+	// 			if err != nil {
+	// 				fmt.Println("error reading body of request: ", err)
+	// 				return c.String(http.StatusBadRequest, "bad request")
+	// 			}
+	// 			fmt.Println("Body: ", string(reqbody))
 
-				err = json.Unmarshal(reqbody, received)
-				if err != nil {
-					fmt.Println("error unmarshalling body into struct: ", err)
-					return c.String(http.StatusBadRequest, "bad request")
-				}
+	// 			err = json.Unmarshal(reqbody, received)
+	// 			if err != nil {
+	// 				fmt.Println("error unmarshalling body into struct: ", err)
+	// 				return c.String(http.StatusBadRequest, "bad request")
+	// 			}
 
-				// Forward the received request to the target server
-				if received.Method == "GET" {
-					fmt.Println("Received GET request to: ", received.URL)
-					resp, err := http.Get(received.URL)
-					if err != nil {
-						fmt.Printf("error: %v\n", err)
-						return c.String(http.StatusBadRequest, "bad request")
-					}
-					defer resp.Body.Close()
-					fmt.Println("Response Status:", resp.Status)
-					fmt.Println("Response Headers:", resp.Header)
-					body, _ := io.ReadAll(resp.Body)
-					fmt.Println("Response Body:", string(body))
-					return c.String(resp.StatusCode, string(body))
+	// 			// Forward the received request to the target server
+	// 			if received.Method == "GET" {
+	// 				fmt.Println("Received GET request to: ", received.URL)
+	// 				resp, err := http.Get(received.URL)
+	// 				if err != nil {
+	// 					fmt.Printf("error: %v\n", err)
+	// 					return c.String(http.StatusBadRequest, "bad request")
+	// 				}
+	// 				defer resp.Body.Close()
+	// 				fmt.Println("Response Status:", resp.Status)
+	// 				fmt.Println("Response Headers:", resp.Header)
+	// 				body, _ := io.ReadAll(resp.Body)
+	// 				fmt.Println("Response Body:", string(body))
+	// 				return c.String(resp.StatusCode, string(body))
 
-				} else if received.Method == "POST" {
-					fmt.Println("Received POST request to: ", received.URL)
+	// 			} else if received.Method == "POST" {
+	// 				fmt.Println("Received POST request to: ", received.URL)
 
-					receivedBodyMap := make(map[string]any)
-					err = json.Unmarshal(reqbody, &receivedBodyMap)
-					if err != nil {
-						fmt.Println("error unmarshalling body into struct: ", err)
-						return c.String(http.StatusBadRequest, "bad request")
-					}
-					fmt.Printf("MapBody: %+v\n", receivedBodyMap)
+	// 				receivedBodyMap := make(map[string]any)
+	// 				err = json.Unmarshal(reqbody, &receivedBodyMap)
+	// 				if err != nil {
+	// 					fmt.Println("error unmarshalling body into struct: ", err)
+	// 					return c.String(http.StatusBadRequest, "bad request")
+	// 				}
+	// 				fmt.Printf("MapBody: %+v\n", receivedBodyMap)
 
-					var req *http.Request
-					switch receivedBodyMap["body"].(type) {
-					case string:
+	// 				var req *http.Request
+	// 				switch receivedBodyMap["body"].(type) {
+	// 				case string:
 
-						req, err = http.NewRequest("POST", received.URL, strings.NewReader(receivedBodyMap["body"].(string)))
-						if err != nil {
-							fmt.Printf("error: %v\n", err)
-							return c.String(http.StatusBadRequest, "bad request")
-						}
+	// 					req, err = http.NewRequest("POST", received.URL, strings.NewReader(receivedBodyMap["body"].(string)))
+	// 					if err != nil {
+	// 						fmt.Printf("error: %v\n", err)
+	// 						return c.String(http.StatusBadRequest, "bad request")
+	// 					}
 
-					default:
+	// 				default:
 
-						bodyserialized, err := json.Marshal(receivedBodyMap["body"])
-						if err != nil {
-							fmt.Println("error marshalling body: ", err)
-							return c.String(http.StatusBadRequest, "bad request")
-						}
+	// 					bodyserialized, err := json.Marshal(receivedBodyMap["body"])
+	// 					if err != nil {
+	// 						fmt.Println("error marshalling body: ", err)
+	// 						return c.String(http.StatusBadRequest, "bad request")
+	// 					}
 
-						req, err = http.NewRequest("POST", received.URL, bytes.NewReader(bodyserialized))
-						if err != nil {
-							fmt.Printf("error: %v\n", err)
-							return c.String(http.StatusBadRequest, "bad request")
-						}
+	// 					req, err = http.NewRequest("POST", received.URL, bytes.NewReader(bodyserialized))
+	// 					if err != nil {
+	// 						fmt.Printf("error: %v\n", err)
+	// 						return c.String(http.StatusBadRequest, "bad request")
+	// 					}
 
-					}
+	// 				}
 
-					req.Header.Set("Content-Type", received.Mimetype)
-					if len(received.Authorization) > 0 {
-						req.Header.Set("Authorization", "Bearer "+received.Authorization)
-					}
+	// 				req.Header.Set("Content-Type", received.Mimetype)
+	// 				if len(received.Authorization) > 0 {
+	// 					req.Header.Set("Authorization", "Bearer "+received.Authorization)
+	// 				}
 
-					resp, err := http.DefaultClient.Do(req)
-					if err != nil {
-						fmt.Printf("error sending request: %v\n", err)
-						return c.String(http.StatusBadRequest, "bad request")
-					}
-					defer resp.Body.Close()
-					fmt.Println("Response Status:", resp.Status)
-					fmt.Println("Response Headers:", resp.Header)
-					body, _ := io.ReadAll(resp.Body)
-					fmt.Println("Response Body:", string(body))
-					return c.String(resp.StatusCode, string(body))
-				} else {
-					fmt.Println("Received BAD request to: ", received.URL)
-					return c.String(http.StatusBadRequest, "bad request")
-				}
+	// 				resp, err := http.DefaultClient.Do(req)
+	// 				if err != nil {
+	// 					fmt.Printf("error sending request: %v\n", err)
+	// 					return c.String(http.StatusBadRequest, "bad request")
+	// 				}
+	// 				defer resp.Body.Close()
+	// 				fmt.Println("Response Status:", resp.Status)
+	// 				fmt.Println("Response Headers:", resp.Header)
+	// 				body, _ := io.ReadAll(resp.Body)
+	// 				fmt.Println("Response Body:", string(body))
+	// 				return c.String(resp.StatusCode, string(body))
+	// 			} else {
+	// 				fmt.Println("Received BAD request to: ", received.URL)
+	// 				return c.String(http.StatusBadRequest, "bad request")
+	// 			}
 
-			})
+	// 		})
 
-		}
+	// 	}
 
-		//Start serving requests
-		walletListenAddress := rootCfg.String("server.listenAddress", ":3030")
-		log.Fatal(staticServer.Start(walletListenAddress))
-	}()
+	// 	//Start serving requests
+	// 	walletListenAddress := rootCfg.String("server.listenAddress", ":3030")
+	// 	log.Fatal(staticServer.Start(walletListenAddress))
+	// }()
 
 	// Get the configuration for the example Relying Party
 	rcfg := rootCfg.Map("relyingParty")
@@ -558,20 +552,26 @@ func readCertData(certDataFile string) (*yaml.YAML, error) {
 
 func detectBaseDir() (baseDir string, err error) {
 	// Loosely check if it was executed using "go run"
-	isGoRun := strings.HasPrefix(os.Args[0], os.TempDir())
+	// isGoRun := strings.HasPrefix(os.Args[0], os.TempDir())
 
-	if isGoRun {
-		// Probably ran with go run
-		var err error
-		baseDir, err = os.Getwd()
-		if err != nil {
-			return "", fmt.Errorf("getting working directory: %w", err)
-		}
-	} else {
-		// Probably ran with go build
-		baseDir = filepath.Dir(os.Args[0])
+	baseDir, err = os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("getting working directory: %w", err)
 	}
 	return baseDir, nil
+
+	// if isGoRun {
+	// 	// Probably ran with go run
+	// 	var err error
+	// 	baseDir, err = os.Getwd()
+	// 	if err != nil {
+	// 		return "", fmt.Errorf("getting working directory: %w", err)
+	// 	}
+	// } else {
+	// 	// Probably ran with go build
+	// 	baseDir = filepath.Dir(os.Args[0])
+	// }
+	// return baseDir, nil
 }
 func isDevelopmentMode() bool {
 	// Check for the environment variable or if it's likely "go run"

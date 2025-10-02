@@ -1,13 +1,12 @@
 {
-    "githubPullRequests.ignoredPullRequestBranches": [
-        "main"
-    ],
-    "makefile.configureOnOpen": false,
-    "editor.formatOnSave": true,
-    "[templ]": {
-        "editor.defaultFormatter": "a-h.templ"
-    },
-    "emmet.includeLanguages": {
-        "templ": "html"
-    }
+   "githubPullRequests.ignoredPullRequestBranches": ["main"],
+   "makefile.configureOnOpen": false,
+   "editor.formatOnSave": true,
+   "[templ]": {
+      "editor.defaultFormatter": "a-h.templ"
+   },
+   "emmet.includeLanguages": {
+      "templ": "html"
+   },
+   "editor.fontSize": 14
 }

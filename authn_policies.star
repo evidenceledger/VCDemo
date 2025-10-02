@@ -60,6 +60,9 @@ def authenticate(request, rawcred, protected_resource):
     if credentialIncludesPower(credential, "execute", "Onboarding", "DOME"):
         return True
 
+    if credentialIncludesPower(credential, "execute", "Onboarding", "CIRCULOOS"):
+        return True
+
     # If we reached here, deny the request
     return False
 

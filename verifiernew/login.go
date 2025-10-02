@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -197,11 +198,13 @@ func (l *login) createRouter() {
 		// Invoke the PDP (Policy Decision Point) to authenticate/authorize this request
 		accepted, err := pdp.TakeAuthnDecision(Authenticate, r, string(serialCredential), "")
 		if err != nil {
+			slog.Error("error evaluating authentication rules", "error", err)
 			http.Error(w, fmt.Sprintf("error evaluating authentication rules:%s", err), http.StatusInternalServerError)
 			return
 		}
 
 		if !accepted {
+			slog.Error("PDP rejected authentication")
 			http.Error(w, "authentication failed", http.StatusUnauthorized)
 			return
 		}
@@ -211,6 +214,7 @@ func (l *login) createRouter() {
 		// Update the internal AuthRequest with the LEARCredential received from the Wallet.
 		err = l.authenticate.SaveWalletAuthenticationResponse(authReqId, wcred)
 		if err != nil {
+			slog.Error("error updating Wallet authentication response", "error", err)
 			http.Error(w, fmt.Sprintf("error updating Wallet authentication response:%s", err), http.StatusInternalServerError)
 			return
 		}
