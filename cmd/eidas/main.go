@@ -19,6 +19,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"flag"
+	"fmt"
 	"log"
 	"math/big"
 	"os"
@@ -28,12 +29,19 @@ import (
 )
 
 var (
-	validFrom  = flag.String("start-date", "", "Creation date formatted as Jan 1 15:04:05 2011")
-	validFor   = flag.Duration("duration", 365*24*time.Hour, "Duration that certificate is valid for")
-	isCA       = flag.Bool("ca", false, "whether this cert should be its own Certificate Authority")
-	rsaBits    = flag.Int("rsa-bits", 2048, "Size of RSA key to generate. Ignored if --ecdsa-curve is set")
-	ecdsaCurve = flag.String("ecdsa-curve", "", "ECDSA curve to use to generate a key. Valid values are P224, P256 (recommended), P384, P521")
-	ed25519Key = flag.Bool("ed25519", false, "Generate an Ed25519 key")
+	validFrom    = flag.String("start-date", "", "Creation date formatted as Jan 1 15:04:05 2011")
+	validFor     = flag.Duration("duration", 365*24*time.Hour, "Duration that certificate is valid for")
+	isCA         = flag.Bool("ca", false, "whether this cert should be its own Certificate Authority")
+	rsaBits      = flag.Int("rsa-bits", 2048, "Size of RSA key to generate. Ignored if --ecdsa-curve is set")
+	ecdsaCurve   = flag.String("ecdsa-curve", "", "ECDSA curve to use to generate a key. Valid values are P224, P256 (recommended), P384, P521")
+	ed25519Key   = flag.Bool("ed25519", false, "Generate an Ed25519 key")
+	orgID        = flag.String("organizationIdentifier", "VATES-12345678J", "Organization Identifier")
+	commonName   = flag.String("commonName", "34343434H John Doe", "Common Name")
+	serialNumber = flag.String("serialNumber", "34343434H", "Serial Number")
+	organization = flag.String("organization", "GoodAir Foundation", "Organization")
+	country      = flag.String("country", "ES", "Country")
+	fileName     = flag.String("fileName", "cert", "Base file name for output without extension")
+	keytype      = flag.String("type", "EC", "Type of key to generate. Valid values are EC, ED or RSA")
 )
 
 func publicKey(priv any) any {
@@ -54,24 +62,40 @@ func main() {
 
 	var priv any
 	var err error
-	switch *ecdsaCurve {
-	case "":
-		if *ed25519Key {
-			_, priv, err = ed25519.GenerateKey(rand.Reader)
-		} else {
-			priv, err = rsa.GenerateKey(rand.Reader, *rsaBits)
+
+	switch *keytype {
+	case "EC":
+		switch *ecdsaCurve {
+		case "":
+			fmt.Println("generating an ECDSA P256 key")
+			priv, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		case "P224":
+			fmt.Println("generating an ECDSA P224 key")
+			priv, err = ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
+		case "P256":
+			fmt.Println("generating an ECDSA P256 key")
+			priv, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		case "P384":
+			fmt.Println("generating an ECDSA P384 key")
+			priv, err = ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+		case "P521":
+			fmt.Println("generating an ECDSA P521 key")
+			priv, err = ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+		default:
+			log.Fatalf("Unrecognized elliptic curve: %q", *ecdsaCurve)
 		}
-	case "P224":
-		priv, err = ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
-	case "P256":
-		priv, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	case "P384":
-		priv, err = ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-	case "P521":
-		priv, err = ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+
+	case "ED":
+		fmt.Println("generating an Ed25519 key")
+		_, priv, err = ed25519.GenerateKey(rand.Reader)
+	case "RSA":
+		fmt.Println("generating an RSA keypair")
+		priv, err = rsa.GenerateKey(rand.Reader, *rsaBits)
 	default:
-		log.Fatalf("Unrecognized elliptic curve: %q", *ecdsaCurve)
+		log.Fatalf("Unrecognized key type: %q", *keytype)
+
 	}
+
 	if err != nil {
 		log.Fatalf("Failed to generate private key: %v", err)
 	}
@@ -96,29 +120,30 @@ func main() {
 		}
 	}
 
+	// If the user does not provide a value, it is one year
 	notAfter := notBefore.Add(*validFor)
 
-	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
-	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	certSerialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	certSerialNumber, err := rand.Int(rand.Reader, certSerialNumberLimit)
 	if err != nil {
 		log.Fatalf("Failed to generate serial number: %v", err)
 	}
 
 	organizationIdentifier := pkix.AttributeTypeAndValue{
 		Type:  []int{2, 5, 4, 97},
-		Value: "VATES-12345678",
+		Value: *orgID,
 	}
 	extraNames := []pkix.AttributeTypeAndValue{organizationIdentifier}
 	subject := pkix.Name{
-		CommonName:   "56565656V Beppe Cafiso",
-		SerialNumber: "56565656V",
-		Organization: []string{"GoodAir"},
-		Country:      []string{"IT"},
+		CommonName:   *commonName,
+		SerialNumber: *serialNumber,
+		Organization: []string{*organization},
+		Country:      []string{*country},
 		ExtraNames:   extraNames,
 	}
 
 	template := x509.Certificate{
-		SerialNumber: serialNumber,
+		SerialNumber: certSerialNumber,
 		Subject:      subject,
 		NotBefore:    notBefore,
 		NotAfter:     notAfter,
@@ -138,33 +163,33 @@ func main() {
 		log.Fatalf("Failed to create certificate: %v", err)
 	}
 
-	certOut, err := os.Create("cert.pem")
+	certOut, err := os.Create(*fileName + ".pem")
 	if err != nil {
-		log.Fatalf("Failed to open cert.pem for writing: %v", err)
+		log.Fatalf("Failed to open %s for writing: %v", *fileName+".pem", err)
 	}
 	if err := pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
-		log.Fatalf("Failed to write data to cert.pem: %v", err)
+		log.Fatalf("Failed to encode Certificate to PEM format: %v", err)
 	}
 	if err := certOut.Close(); err != nil {
-		log.Fatalf("Error closing cert.pem: %v", err)
+		log.Fatalf("Error closing %s: %v", *fileName+".pem", err)
 	}
-	log.Print("wrote cert.pem\n")
+	log.Println("wrote", *fileName+".pem")
 
-	keyOut, err := os.OpenFile("key.pem", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	keyOut, err := os.OpenFile(*fileName+".priv.pem", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		log.Fatalf("Failed to open key.pem for writing: %v", err)
+		log.Fatalf("Failed to open %s for writing: %v", *fileName+".priv.pem", err)
 	}
 	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
 		log.Fatalf("Unable to marshal private key: %v", err)
 	}
 	if err := pem.Encode(keyOut, &pem.Block{Type: "PRIVATE KEY", Bytes: privBytes}); err != nil {
-		log.Fatalf("Failed to write data to key.pem: %v", err)
+		log.Fatalf("Failed to encode Private Key to PEM format: %v", err)
 	}
 	if err := keyOut.Close(); err != nil {
-		log.Fatalf("Error closing key.pem: %v", err)
+		log.Fatalf("Error closing %s: %v", *fileName+".priv.pem", err)
 	}
-	log.Print("wrote key.pem\n")
+	log.Println("wrote", *fileName+".priv.pem")
 
 	newCert, err := x509.ParseCertificate(derBytes)
 	if err != nil {
@@ -176,15 +201,15 @@ func main() {
 		panic(err)
 	}
 
-	pfxFile, err := os.OpenFile("mycert.p12", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	pfxFile, err := os.OpenFile(*fileName+".p12", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		log.Fatalf("Failed to open mycert.p12 for writing: %v", err)
+		log.Fatalf("Failed to open %s for writing: %v", *fileName+".p12", err)
 	}
 	pfxFile.Write(pfxData)
 
 	if err := pfxFile.Close(); err != nil {
-		log.Fatalf("Error closing mycert.p12: %v", err)
+		log.Fatalf("Error closing %s: %v", *fileName+".p12", err)
 	}
-	log.Print("wrote mycert.p12\n")
+	log.Println("wrote", *fileName+".p12")
 
 }
